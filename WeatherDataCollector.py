@@ -1,4 +1,6 @@
+import ast
 from abc import ABC, abstractmethod
+import pandas as pd
 import requests
 from datetime import datetime, timedelta
 from typing import List, Dict
@@ -11,6 +13,10 @@ class WeatherDataCollector(ABC):
     @abstractmethod
     def get_data(self, district: str, date: str, date_range: int = 4) -> List[Dict]:
         raise NotImplementedError("You need to implement get_pollen_data function.")
+
+    @abstractmethod
+    def save(self, data: Dict, filename: str):
+        raise NotImplementedError("You need to implement save function.")
 
 
 class WeatherCollectorSelenium(WeatherDataCollector):
@@ -27,7 +33,7 @@ class WeatherCollectorSelenium(WeatherDataCollector):
             raise ValueError("Please provide a real district name.")
 
         location_key = self.__get_location_key(district_name)
-        daily_pollen_data = []
+        forecasts = []
 
         for date in dates:
             formatted_date = date.strftime("%Y%m%d")
@@ -45,20 +51,31 @@ class WeatherCollectorSelenium(WeatherDataCollector):
 
                 if 'DailyForecasts' in pollen_data and len(pollen_data['DailyForecasts']) > 0:
                     forecast = pollen_data['DailyForecasts'][0]
-                    date_pollen_data = {'date': date.strftime("%Y-%m-%d"), 'pollen': []}
-
-                    if 'AirAndPollen' in forecast:
-                        for pollen_dict in forecast['AirAndPollen']:
-                            date_pollen_data["pollen"].append({
-                                "name": pollen_dict['Name'],
-                                "level": pollen_dict['Value'],
-                                "category": pollen_dict["Category"]
-                            })
-                    daily_pollen_data.append(date_pollen_data)
+                    forecast["Date"] = date
+                    forecasts.append(forecast)
             else:
                 raise Exception(f"Could not get data for {formatted_date}. Status Code: {response.status_code}")
 
-        return daily_pollen_data
+        return forecasts
+
+    def save(self, data: List[Dict], filename: str):
+        normalized_daily_dataframes = []
+
+        for day_data in data:
+            normalized_dataframe = pd.json_normalize(day_data, sep="_")
+
+            if "AirAndPollen" in normalized_dataframe.columns:
+                air_and_pollen = normalized_dataframe["AirAndPollen"].apply(pd.Series)
+                air_and_pollen.columns = [f"AirAndPollen_{item["Name"]}" for item in air_and_pollen.iloc[0]]
+
+                for column in air_and_pollen.columns:
+                    air_and_pollen[column] = air_and_pollen[column].apply(lambda x: x['Category'] if isinstance(x, dict) else x)
+
+                normalized_dataframe = pd.concat([normalized_dataframe.drop(columns=["AirAndPollen"]), air_and_pollen], axis=1)
+            normalized_daily_dataframes.append(normalized_dataframe)
+
+        final_dataframe = pd.concat(normalized_daily_dataframes, ignore_index=True)
+        final_dataframe.to_csv(filename, index=False)
 
     def __get_location_key(self, district_name: str) -> str:
         location_url = f"https://dataservice.accuweather.com/locations/v1/cities/search"
@@ -66,8 +83,11 @@ class WeatherCollectorSelenium(WeatherDataCollector):
             'apikey': self.API_KEY,
             'q': district_name
         }
-        location_data = requests.get(location_url, params=params).json()
+        response = requests.get(location_url, params=params)
+        if response.status_code == 503:
+            raise Exception("Quota exceeded.")
+
+        location_data = response.json()
         location_key = location_data[0]['Key']
         print(f"Location Key for {district_name.capitalize()}: {location_key}")
-        print(type(location_key))
         return location_key
