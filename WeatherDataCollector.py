@@ -1,17 +1,17 @@
-import ast
+import os.path
+import time
 from abc import ABC, abstractmethod
 import pandas as pd
 import requests
-from datetime import datetime, timedelta
-from typing import List, Dict
+from Utils import *
 
 
 class WeatherDataCollector(ABC):
     def __init__(self):
-        pass
+        self.districts = get_districts_from_file()
 
     @abstractmethod
-    def get_data(self, district: str, date: str, date_range: int = 4) -> List[Dict]:
+    def get_data(self, district: str, date: str = "", date_range: int = 1) -> List[Dict]:
         raise NotImplementedError("You need to implement get_pollen_data function.")
 
     @abstractmethod
@@ -19,42 +19,66 @@ class WeatherDataCollector(ABC):
         raise NotImplementedError("You need to implement save function.")
 
 
-class WeatherCollectorSelenium(WeatherDataCollector):
+class AccuWeather(WeatherDataCollector):
     def __init__(self):
         super().__init__()
-        self.API_KEY = "za0raAko4C5HjzCG9IQqkyyaPZnXNVXT"
+        self.api_keys = ["tTI76aksjDjbAAJJVfmQ5zMx9sgN9jKp",
+                         "5kc8ObMmCuDSOkUrsdl2R2Lgj7krAvfy",
+                         "XmxKp8p7t1aQAIMA0qUYNOrAGvsxZZBA",
+                         "IdcH6C5JwGdonwqVCFGUhTapyAXm0GqE",
+                         "COkfPtV5UDjKJBYTDXu1ky7fVIbDZZL8",
+                         "RHhgHFC4flvViNeQyyLMW7Rjzqi2hAgg",
+                         "3NxZD92F2KJFrxfcdLAvcXEK3G8wZvkv",
+                         "jsy15OjqNfTa8zbp0pE1vqdXtISOKjLd",
+                         "WLDB8sG0RGOe0wkL3mNG1W0owvVyvU2u",
+                         "FJ18uXJfYSayZIeXjfeti3u9syEejjje",
+                         "za0raAko4C5HjzCG9IQqkyyaPZnXNVXT",
+                         "YBIidwpLsAjyQPKvdhtmV9CX1aEHxgBQ",
+                         "w8ANdGxNyhcAdKLMvXuVT1X4AlZgy6KV",
+                         "Gm1UR3uIR4QGBHAOE4BxqOJW1rfxKDff",
+                         "tHzRDptBzfXpRg2pv67x9GjbirnvKX3F"]
+        self.available_api_key_index = 0
+        self.redundant_columns = ["EpochDate", "Sources", "MobileLink", "Link", "Sun_EpochRise", "Sun_EpochSet", "Moon_EpochRise", "Moon_EpochSet",
+                                  "Day_Icon", "Day_Wind_Direction_English", "Day_WindGust_Direction_English", "Night_Icon",
+                                  "Night_Wind_Direction_English", "Night_WindGust_Direction_English"]
+        self.fahrenheit_unit_columns = ["Temperature_Minimum_Value", "Temperature_Maximum_Value", "RealFeelTemperature_Minimum_Value",
+                                        "RealFeelTemperature_Maximum_Value", "RealFeelTemperatureShade_Minimum_Value",
+                                        "RealFeelTemperatureShade_Maximum_Value", "DegreeDaySummary_Heating_Value", "DegreeDaySummary_Cooling_Value",
+                                        "Day_WetBulbTemperature_Minimum_Value", "Day_WetBulbTemperature_Maximum_Value", "Day_WetBulbTemperature_Average_Value",
+                                        "Day_WetBulbGlobeTemperature_Minimum_Value", "Day_WetBulbGlobeTemperature_Maximum_Value", "Day_WetBulbGlobeTemperature_Average_Value",
+                                        "Night_WetBulbTemperature_Minimum_Value", "Night_WetBulbTemperature_Maximum_Value", "Night_WetBulbTemperature_Average_Value",
+                                        "Night_WetBulbGlobeTemperature_Minimum_Value", "Night_WetBulbGlobeTemperature_Maximum_Value",
+                                        "Night_WetBulbGlobeTemperature_Average_Value"]
+        self.mph_unit_columns = ["Day_Wind_Speed_Value", "Day_WindGust_Speed_Value", "Night_Wind_Speed_Value", "Night_WindGust_Speed_Value"]
+        self.in_unit_columns = ["Day_TotalLiquid_Value", "Day_Rain_Value", "Day_Snow_Value", "Day_Ice_Value", "Day_Evapotranspiration_Value",
+                                "Night_TotalLiquid_Value", "Night_Rain_Value", "Night_Snow_Value", "Night_Ice_Value", "Night_Evapotranspiration_Value"]
 
-    def get_data(self, district_name: str, date: str, date_range: int = 4) -> List[Dict]:
-        date = datetime.strptime(date, "%Y-%m-%d")
-        dates = [date + timedelta(days=i) for i in range(-date_range, date_range + 1)]
-
+    def get_data(self, district_name: str, date: str = "", date_range: int = 1) -> List[Dict]:
         district_name = district_name.lower().strip()
         if len(district_name) < 1:
             raise ValueError("Please provide a real district name.")
-
         location_key = self.__get_location_key(district_name)
+
+        # Getting pollen information by location key from API
+        pollen_url = f"https://dataservice.accuweather.com/forecasts/v1/daily/{date_range}day/{location_key}"
+        pollen_params = {
+            'apikey': self.api_keys[self.available_api_key_index],
+            'details': 'true',
+        }
+
         forecasts = []
 
-        for date in dates:
-            formatted_date = date.strftime("%Y%m%d")
+        response = requests.get(pollen_url, params=pollen_params)
+        if response.status_code == 200:
+            pollen_data = response.json()
 
-            # Getting pollen information by location key from API
-            pollen_url = f"https://dataservice.accuweather.com/forecasts/v1/daily/1day/{location_key}"
-            pollen_params = {
-                'apikey': self.API_KEY,
-                'details': 'true',
-            }
-
-            response = requests.get(pollen_url, params=pollen_params)
-            if response.status_code == 200:
-                pollen_data = response.json()
-
-                if 'DailyForecasts' in pollen_data and len(pollen_data['DailyForecasts']) > 0:
-                    forecast = pollen_data['DailyForecasts'][0]
-                    forecast["Date"] = date
+            if 'DailyForecasts' in pollen_data and len(pollen_data['DailyForecasts']) > 0:
+                for forecast in pollen_data["DailyForecasts"]:
                     forecasts.append(forecast)
-            else:
-                raise Exception(f"Could not get data for {formatted_date}. Status Code: {response.status_code}")
+        else:
+            if response.status_code == 503:
+                self.__increment_api_index()
+                return self.get_data(district_name)
 
         return forecasts
 
@@ -72,22 +96,78 @@ class WeatherCollectorSelenium(WeatherDataCollector):
                     air_and_pollen[column] = air_and_pollen[column].apply(lambda x: x['Category'] if isinstance(x, dict) else x)
 
                 normalized_dataframe = pd.concat([normalized_dataframe.drop(columns=["AirAndPollen"]), air_and_pollen], axis=1)
+
+            normalized_dataframe["Date"] = datetime.now()
             normalized_daily_dataframes.append(normalized_dataframe)
 
-        final_dataframe = pd.concat(normalized_daily_dataframes, ignore_index=True)
+        result_dataframe = pd.concat(normalized_daily_dataframes, ignore_index=True)
+        result_dataframe = self.__preprocess_columns(result_dataframe)
+
+        if not os.path.exists(filename):
+            with open(filename, "w") as f:
+                f.write(",".join(result_dataframe.columns))
+
+        old_dataframe = pd.read_csv(filename)
+        final_dataframe = pd.concat([old_dataframe, result_dataframe], ignore_index=True)
+
         final_dataframe.to_csv(filename, index=False)
+
+    def save_aegean(self, filename: str) -> None:
+        forecasts = []
+        for city_name, city_districts in self.districts.items():
+            city_data = self.get_data(city_name)
+            for daily_city_data in city_data:
+                daily_city_data["City"] = city_name
+                daily_city_data["District"] = None
+                daily_city_data["Season"] = get_season(daily_city_data["Date"])
+                forecasts.append(daily_city_data)
+
+            for city_district in city_districts:
+                district_data = self.get_data(city_district)
+                for daily_district_data in district_data:
+                    daily_district_data["City"] = city_name
+                    daily_district_data["District"] = city_district
+                    daily_district_data["Season"] = get_season(daily_district_data["Date"])
+                    forecasts.append(daily_district_data)
+                time.sleep(1)
+        self.save(forecasts, filename)
 
     def __get_location_key(self, district_name: str) -> str:
         location_url = f"https://dataservice.accuweather.com/locations/v1/cities/search"
         params = {
-            'apikey': self.API_KEY,
+            'apikey': self.api_keys[self.available_api_key_index],
             'q': district_name
         }
         response = requests.get(location_url, params=params)
         if response.status_code == 503:
-            raise Exception("Quota exceeded.")
+            self.__increment_api_index()
+            return self.__get_location_key(district_name)
 
         location_data = response.json()
         location_key = location_data[0]['Key']
         print(f"Location Key for {district_name.capitalize()}: {location_key}")
         return location_key
+
+    def __preprocess_columns(self, dataframe: pd.DataFrame):
+        dataframe.drop(columns=[column for column in dataframe.columns if "Unit" in column], inplace=True)
+        dataframe.drop(columns=self.redundant_columns, inplace=True, errors='ignore')
+
+        for col in self.fahrenheit_unit_columns:
+            if col in dataframe.columns:
+                dataframe[col] = dataframe[col].apply(fahrenheit_to_celsius)
+
+        for col in self.mph_unit_columns:
+            if col in dataframe.columns:
+                dataframe[col] = dataframe[col].apply(mph_to_kph)
+
+        for col in self.in_unit_columns:
+            if col in dataframe.columns:
+                dataframe[col] = dataframe[col].apply(inch_to_millimeter)
+
+        return dataframe
+
+    def __increment_api_index(self):
+        self.available_api_key_index += 1
+        print(f"API key index is incremented to {self.available_api_key_index}. You have {(len(self.api_keys) - 1) - (self.available_api_key_index - 1)} API keys left.")
+        if self.available_api_key_index == len(self.api_keys) - 1:
+            raise Exception("All API keys are exceeded quota. Add new API key to api_keys variable.")
