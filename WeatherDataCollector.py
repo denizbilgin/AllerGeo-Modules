@@ -22,7 +22,14 @@ class WeatherDataCollector(ABC):
 class AccuWeather(WeatherDataCollector):
     def __init__(self):
         super().__init__()
-        self.api_keys = ["tTI76aksjDjbAAJJVfmQ5zMx9sgN9jKp",
+        self.api_keys = ["b7AQGWXepTAyjzsvgg8rcoo01lPIQrhQ",
+                         "fcgGMMOJQqJmRFupwfABKB9DNHcYAObK",
+                         "rGQakzk0rn26wOrrjLVVZu45VYAKFSzT",
+                         "lMS2eVUQQGkkWrlbbA7aLyqj6T9GTsT0",
+                         "z6yxRXVsgTah7V703Fzmzfdn4y1lA3y0",
+                         "svYG8IJktMUVEQKyq2w8AAVBJyBKzuSh",
+                         "JG9SWbeazzw1fd5fCmtJAut2wplFaAvA",
+                         "tTI76aksjDjbAAJJVfmQ5zMx9sgN9jKp",
                          "5kc8ObMmCuDSOkUrsdl2R2Lgj7krAvfy",
                          "XmxKp8p7t1aQAIMA0qUYNOrAGvsxZZBA",
                          "IdcH6C5JwGdonwqVCFGUhTapyAXm0GqE",
