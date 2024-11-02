@@ -2,6 +2,7 @@ from datetime import datetime
 import os
 from typing import Dict, Union, AnyStr, List
 
+
 def is_valid_date(date_string: AnyStr) -> bool:
     try:
         datetime.fromisoformat(date_string)

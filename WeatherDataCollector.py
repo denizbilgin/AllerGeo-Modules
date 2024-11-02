@@ -4,6 +4,12 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import requests
 from Utils import *
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support import expected_conditions as EC
 
 
 class WeatherDataCollector(ABC):
@@ -11,11 +17,11 @@ class WeatherDataCollector(ABC):
         self.districts = get_districts_from_file()
 
     @abstractmethod
-    def get_data(self, district: str, date: str = "", date_range: int = 1) -> List[Dict]:
+    def get_data(self, district: str) -> Union[List[Dict], Dict]:
         raise NotImplementedError("You need to implement get_pollen_data function.")
 
     @abstractmethod
-    def save(self, data: Dict, filename: str):
+    def save(self, data: Union[List[Dict], Dict], filename: str):
         raise NotImplementedError("You need to implement save function.")
 
 
@@ -72,36 +78,42 @@ class AccuWeather(WeatherDataCollector):
         self.in_unit_columns = ["Day_TotalLiquid_Value", "Day_Rain_Value", "Day_Snow_Value", "Day_Ice_Value", "Day_Evapotranspiration_Value",
                                 "Night_TotalLiquid_Value", "Night_Rain_Value", "Night_Snow_Value", "Night_Ice_Value", "Night_Evapotranspiration_Value"]
 
-    def get_data(self, district_name: str, date: str = "", date_range: int = 1) -> List[Dict]:
+        # For Selenium
+        self.base_website_url = "https://www.accuweather.com/en/en/"
+        self.chrome_options = Options()
+        #self.chrome_options.add_argument("--headless")
+        #self.chrome_options.add_argument("--no-sandbox")
+        #self.chrome_options.add_argument("--disable-dev-shm-usage")
+        self.driver = webdriver.Chrome(service=Service("chromedriver/chromedriver.exe"), options=self.chrome_options)
+
+    def get_data(self, district_name: str) -> Union[List[Dict], Dict]:
         district_name = district_name.lower().strip()
         if len(district_name) < 1:
             raise ValueError("Please provide a real district name.")
         location_key = self.__get_location_key(district_name)
 
         # Getting pollen information by location key from API
-        pollen_url = f"https://dataservice.accuweather.com/forecasts/v1/daily/{date_range}day/{location_key}"
+        pollen_url = f"https://dataservice.accuweather.com/forecasts/v1/daily/1day/{location_key}"
         pollen_params = {
             'apikey': self.api_keys[self.available_api_key_index],
             'details': 'true',
         }
 
-        forecasts = []
-
         response = requests.get(pollen_url, params=pollen_params)
         if response.status_code == 200:
             pollen_data = response.json()
-
             if 'DailyForecasts' in pollen_data and len(pollen_data['DailyForecasts']) > 0:
-                for forecast in pollen_data["DailyForecasts"]:
-                    forecasts.append(forecast)
+                measurements: Dict = pollen_data["DailyForecasts"][0]
+                measurements.update(self.__get_health_activities_data(district_name, location_key))
+                return measurements
         else:
             if response.status_code == 503:
                 self.__increment_api_index()
                 return self.get_data(district_name)
 
-        return forecasts
-
-    def save(self, data: List[Dict], filename: str):
+    def save(self, data: Union[List[Dict], Dict], filename: str):
+        if isinstance(data, dict):
+            data = [data]
         normalized_daily_dataframes = []
 
         for day_data in data:
@@ -135,20 +147,17 @@ class AccuWeather(WeatherDataCollector):
         forecasts = []
         for city_name, city_districts in self.districts.items():
             city_data = self.get_data(city_name)
-            for daily_city_data in city_data:
-                daily_city_data["City"] = city_name
-                daily_city_data["District"] = None
-                daily_city_data["Season"] = get_season(daily_city_data["Date"])
-                forecasts.append(daily_city_data)
+            city_data["City"] = city_name
+            city_data["District"] = None
+            city_data["Season"] = get_season(city_data["Date"])
+            forecasts.append(city_data)
 
             for city_district in city_districts:
                 district_data = self.get_data(city_district)
-                for daily_district_data in district_data:
-                    daily_district_data["City"] = city_name
-                    daily_district_data["District"] = city_district
-                    daily_district_data["Season"] = get_season(daily_district_data["Date"])
-                    forecasts.append(daily_district_data)
-                time.sleep(1)
+                district_data["City"] = city_name
+                district_data["District"] = city_district.split(" ")[-1]
+                district_data["Season"] = get_season(district_data["Date"])
+                forecasts.append(district_data)
         self.save(forecasts, filename)
 
     def __get_location_key(self, district_name: str) -> str:
@@ -190,3 +199,29 @@ class AccuWeather(WeatherDataCollector):
         print(f"API key index is incremented to {self.available_api_key_index}. You have {(len(self.api_keys) - 1) - (self.available_api_key_index - 1)} API keys left.")
         if self.available_api_key_index == len(self.api_keys) - 1:
             raise Exception("All API keys are exceeded quota. Add new API key to api_keys variable.")
+
+    def __get_health_activities_data(self, district_name: str, location_key: str) -> Dict:
+        health_activities_url = f"{self.base_website_url}{district_name}/{location_key}/health-activities/{location_key}"
+        self.driver.get(health_activities_url)
+
+        content = WebDriverWait(self.driver, 5).until(
+            EC.presence_of_element_located((By.CLASS_NAME, "page-content"))
+        )
+        lifestyle_index_lists = content.find_elements(By.CLASS_NAME,"lifestyle-index-list")
+        lifestyles_dict: Dict = {}
+
+        for lifestyle_list in lifestyle_index_lists:
+            title = lifestyle_list.find_element(By.CLASS_NAME, "index-list-title").text
+            cards_container = lifestyle_list.find_element(By.CLASS_NAME, "index-list-cards-container")
+            cards = cards_container.find_elements(By.TAG_NAME, "a")
+
+            for card in cards:
+                card_name, card_value = card.text.split("\n")
+                card_name = card_name.replace(" ", "").replace("&", "And")
+                lifestyles_dict[title + "_" + card_name] = card_value
+
+        del lifestyles_dict["Allergies_TreePollen"], lifestyles_dict["Allergies_RagweedPollen"], lifestyles_dict["Allergies_Mold"], lifestyles_dict["Allergies_GrassPollen"]
+        dust_and_dander_value = lifestyles_dict.pop("Allergies_DustAndDander")
+        lifestyles_dict["AirAndPollen_DustAndDander"] = dust_and_dander_value
+        return lifestyles_dict
+
