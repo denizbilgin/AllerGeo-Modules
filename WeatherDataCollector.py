@@ -21,7 +21,7 @@ class WeatherDataCollector(ABC):
         raise NotImplementedError("You need to implement get_pollen_data function.")
 
     @abstractmethod
-    def save(self, data: Union[List[Dict], Dict], filename: str):
+    def save(self, data: Union[List[Dict], Dict], filename: str) -> None:
         raise NotImplementedError("You need to implement save function.")
 
 
@@ -81,9 +81,6 @@ class AccuWeather(WeatherDataCollector):
         # For Selenium
         self.base_website_url = "https://www.accuweather.com/en/en/"
         self.chrome_options = Options()
-        #self.chrome_options.add_argument("--headless")
-        #self.chrome_options.add_argument("--no-sandbox")
-        #self.chrome_options.add_argument("--disable-dev-shm-usage")
         self.driver = webdriver.Chrome(service=Service("chromedriver/chromedriver.exe"), options=self.chrome_options)
 
     def get_data(self, district_name: str) -> Union[List[Dict], Dict]:
@@ -111,7 +108,7 @@ class AccuWeather(WeatherDataCollector):
                 self.__increment_api_index()
                 return self.get_data(district_name)
 
-    def save(self, data: Union[List[Dict], Dict], filename: str):
+    def save(self, data: Union[List[Dict], Dict], filename: str) -> None:
         if isinstance(data, dict):
             data = [data]
         normalized_daily_dataframes = []
@@ -176,7 +173,7 @@ class AccuWeather(WeatherDataCollector):
         print(f"Location Key for {district_name.capitalize()}: {location_key}")
         return location_key
 
-    def __preprocess_columns(self, dataframe: pd.DataFrame):
+    def __preprocess_columns(self, dataframe: pd.DataFrame) -> pd.DataFrame:
         dataframe.drop(columns=[column for column in dataframe.columns if "Unit" in column], inplace=True)
         dataframe.drop(columns=self.redundant_columns, inplace=True, errors='ignore')
 
@@ -194,7 +191,7 @@ class AccuWeather(WeatherDataCollector):
 
         return dataframe
 
-    def __increment_api_index(self):
+    def __increment_api_index(self) -> None:
         self.available_api_key_index += 1
         print(f"API key index is incremented to {self.available_api_key_index}. You have {(len(self.api_keys) - 1) - (self.available_api_key_index - 1)} API keys left.")
         if self.available_api_key_index == len(self.api_keys) - 1:
@@ -212,6 +209,7 @@ class AccuWeather(WeatherDataCollector):
 
         for lifestyle_list in lifestyle_index_lists:
             title = lifestyle_list.find_element(By.CLASS_NAME, "index-list-title").text
+            title = title.replace(" ", "").replace("&", "And")
             cards_container = lifestyle_list.find_element(By.CLASS_NAME, "index-list-cards-container")
             cards = cards_container.find_elements(By.TAG_NAME, "a")
 
@@ -224,4 +222,3 @@ class AccuWeather(WeatherDataCollector):
         dust_and_dander_value = lifestyles_dict.pop("Allergies_DustAndDander")
         lifestyles_dict["AirAndPollen_DustAndDander"] = dust_and_dander_value
         return lifestyles_dict
-
