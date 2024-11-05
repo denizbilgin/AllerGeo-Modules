@@ -1,5 +1,4 @@
 import os.path
-import time
 from abc import ABC, abstractmethod
 import pandas as pd
 import requests
@@ -13,8 +12,8 @@ from selenium.webdriver.support import expected_conditions as EC
 
 
 class WeatherDataCollector(ABC):
-    def __init__(self):
-        self.districts = get_districts_from_file()
+    def __init__(self, districts_filename: str):
+        self.districts = get_districts_from_file(districts_filename)
 
     @abstractmethod
     def get_data(self, district: str) -> Union[List[Dict], Dict]:
@@ -26,8 +25,8 @@ class WeatherDataCollector(ABC):
 
 
 class AccuWeather(WeatherDataCollector):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, districts_filename: str = "aegean_districts.txt"):
+        super().__init__(districts_filename)
         self.api_keys = ["b7AQGWXepTAyjzsvgg8rcoo01lPIQrhQ",
                          "fcgGMMOJQqJmRFupwfABKB9DNHcYAObK",
                          "rGQakzk0rn26wOrrjLVVZu45VYAKFSzT",
