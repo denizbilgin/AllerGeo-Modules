@@ -1,6 +1,6 @@
 import os.path
 from abc import ABC, abstractmethod
-import pandas as pd
+from typing import Union, Optional, AnyStr
 import requests
 from Utils import *
 from selenium import webdriver
@@ -9,23 +9,24 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as EC
+from UnicodeTR import UnicodeTR
 
 
 class WeatherDataCollector(ABC):
-    def __init__(self, districts_filename: str):
+    def __init__(self, districts_filename: AnyStr):
         self.districts = get_districts_from_file(districts_filename)
 
     @abstractmethod
-    def get_data(self, district: str) -> Union[List[Dict], Dict]:
+    def get_data(self, district: AnyStr) -> Union[List[Dict], Dict]:
         raise NotImplementedError("You need to implement get_pollen_data function.")
 
     @abstractmethod
-    def save(self, data: Union[List[Dict], Dict], filename: str) -> None:
+    def save(self, data: Union[List[Dict], Dict], filename: AnyStr) -> None:
         raise NotImplementedError("You need to implement save function.")
 
 
 class AccuWeather(WeatherDataCollector):
-    def __init__(self, districts_filename: str = "aegean_districts.txt"):
+    def __init__(self, districts_filename: AnyStr = "aegean_districts.txt"):
         super().__init__(districts_filename)
         self.api_keys = ["b7AQGWXepTAyjzsvgg8rcoo01lPIQrhQ",
                          "fcgGMMOJQqJmRFupwfABKB9DNHcYAObK",
@@ -82,8 +83,8 @@ class AccuWeather(WeatherDataCollector):
         self.chrome_options = Options()
         self.driver = webdriver.Chrome(service=Service("chromedriver/chromedriver.exe"), options=self.chrome_options)
 
-    def get_data(self, district_name: str) -> Union[List[Dict], Dict]:
-        district_name = district_name.lower().strip()
+    def get_data(self, district_name: AnyStr) -> Union[List[Dict], Dict]:
+        district_name = UnicodeTR(district_name.strip()).lower()
         if len(district_name) < 1:
             raise ValueError("Please provide a real district name.")
         location_key = self.__get_location_key(district_name)
@@ -107,7 +108,7 @@ class AccuWeather(WeatherDataCollector):
                 self.__increment_api_index()
                 return self.get_data(district_name)
 
-    def save(self, data: Union[List[Dict], Dict], filename: str) -> None:
+    def save(self, data: Union[List[Dict], Dict], filename: AnyStr) -> None:
         if isinstance(data, dict):
             data = [data]
         normalized_daily_dataframes = []
@@ -139,7 +140,7 @@ class AccuWeather(WeatherDataCollector):
 
         final_dataframe.to_csv(filename, index=False)
 
-    def save_aegean(self, filename: str) -> None:
+    def save_aegean(self, filename: AnyStr) -> None:
         forecasts = []
         for city_name, city_districts in self.districts.items():
             city_data = self.get_data(city_name)
@@ -156,7 +157,7 @@ class AccuWeather(WeatherDataCollector):
                 forecasts.append(district_data)
         self.save(forecasts, filename)
 
-    def __get_location_key(self, district_name: str) -> str:
+    def __get_location_key(self, district_name: AnyStr) -> AnyStr:
         location_url = f"https://dataservice.accuweather.com/locations/v1/cities/search"
         params = {
             'apikey': self.api_keys[self.available_api_key_index],
@@ -169,7 +170,7 @@ class AccuWeather(WeatherDataCollector):
 
         location_data = response.json()
         location_key = location_data[0]['Key']
-        print(f"Location Key for {district_name.capitalize()}: {location_key}")
+        print(f"Location Key for {UnicodeTR(district_name).capitalize()}: {location_key}")
         return location_key
 
     def __preprocess_columns(self, dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -196,7 +197,7 @@ class AccuWeather(WeatherDataCollector):
         if self.available_api_key_index == len(self.api_keys) - 1:
             raise Exception("All API keys are exceeded quota. Add new API key to api_keys variable.")
 
-    def __get_health_activities_data(self, district_name: str, location_key: str) -> Dict:
+    def __get_health_activities_data(self, district_name: AnyStr, location_key: AnyStr) -> Dict:
         health_activities_url = f"{self.base_website_url}{district_name}/{location_key}/health-activities/{location_key}"
         self.driver.get(health_activities_url)
 

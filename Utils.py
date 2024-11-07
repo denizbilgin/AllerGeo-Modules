@@ -1,8 +1,9 @@
 from datetime import datetime
 import os
-from typing import Dict, Union, AnyStr, List
+from typing import Dict, AnyStr, List, Optional
 import pandas as pd
 from difflib import SequenceMatcher
+from UnicodeTR import UnicodeTR
 
 
 def is_valid_date(date_string: AnyStr) -> bool:
@@ -18,7 +19,7 @@ def get_districts_from_file(filename: AnyStr = "aegean_districts.txt") -> Dict[A
         return {}
 
     with open(filename, "r", encoding="utf-8") as f:
-        current_city: Union[AnyStr, None] = None
+        current_city: Optional[AnyStr] = None
         districts: Dict[AnyStr, List[AnyStr]] = {}
         for line in f:
             line = line.strip()
@@ -41,14 +42,16 @@ def fahrenheit_to_celsius(fahrenheit: float) -> float:
 
 
 def inch_to_millimeter(inch: float) -> float:
-    return inch * 25.4
+    millimeter = inch * 25.4
+    return millimeter
 
 
 def mph_to_kph(mph: float) -> float:
-    return round(mph * 1.60934, 2)
+    kph = round(mph * 1.60934, 2)
+    return kph
 
 
-def get_season(date: str) -> Union[AnyStr, None]:
+def get_season(date: AnyStr) -> Optional[AnyStr]:
     if not is_valid_date(date):
         return None
     date = datetime.fromisoformat(date)
@@ -63,31 +66,36 @@ def get_season(date: str) -> Union[AnyStr, None]:
         return "Winter"
 
 
-def get_lat_long(place_name: str, parent_name: str = None) -> Union[Dict[str, float], None]:
-    cities = pd.read_csv("cities.csv").apply(lambda x: x.str.capitalize() if x.dtype == "object" else x)
-    districts = pd.read_csv("districts.csv").apply(lambda x: x.str.capitalize() if x.dtype == "object" else x)
+def get_lat_long(place_name: AnyStr, parent_name: AnyStr = None) -> Optional[Dict[AnyStr, float]]:
+    cities = pd.read_csv("cities.csv")
+    districts = pd.read_csv("districts.csv")
+
+    cities = cities.apply(lambda x: UnicodeTR(x.str).capitalize() if x.dtype == "object" else x)
+    districts = districts.apply(lambda x: UnicodeTR(x.str).capitalize() if x.dtype == "object" else x)
 
     if place_name in cities["il_adi"].values and parent_name is None:
         data = cities.loc[cities["il_adi"] == place_name]
-        coordinates = data[["lat", "lon", "northeast_lat", "northeast_lon", "southwest_lat", "southwest_lon"]].to_dict()
-        return {key: value[data["plaka"].iloc[0] - 1] for key, value in coordinates.items()}
+        coordinates: Dict[AnyStr, Dict] = data[["lat", "lon", "northeast_lat", "northeast_lon", "southwest_lat", "southwest_lon"]].to_dict()
+        result_dict: Dict[AnyStr, float] = {key: value[data["plaka"].iloc[0] - 1] for key, value in coordinates.items()}
+        return result_dict
     elif place_name in districts["ilce_adi"].values and parent_name is not None:
         data = districts.loc[districts["ilce_adi"] == place_name]
-        coordinates = data[["lat", "lon", "northeast_lat", "northeast_lon", "southwest_lat", "southwest_lon"]].to_dict()
-        return {key: value[data["ilce_id"].iloc[0] - 1] for key, value in coordinates.items()}
+        coordinates: Dict[AnyStr, Dict] = data[["lat", "lon", "northeast_lat", "northeast_lon", "southwest_lat", "southwest_lon"]].to_dict()
+        result_dict: Dict[AnyStr, float] = {key: value[data["ilce_id"].iloc[0] - 1] for key, value in coordinates.items()}
+        return result_dict
     else:
         return None
 
 
-def similarity_ratio(string1: str, string2: str) -> float:
+def similarity_ratio(string1: AnyStr, string2: AnyStr) -> float:
     return SequenceMatcher(None, string1, string2).ratio()
 
 
-def find_similar_place(place_name: str, similarity_threshold: float = 0.3) -> Union[str, None]:
+def find_similar_place(place_name: AnyStr, similarity_threshold: float = 0.3) -> Optional[AnyStr]:
     districts = get_districts_from_file()
-    similar_names: Dict[float, str] = {}
+    similar_names: Dict[float, AnyStr] = {}
 
-    def add_similar_name(name: str, score: float) -> None:
+    def add_similar_name(name: AnyStr, score: float) -> None:
         if len(place_name) == len(name) and score > similarity_threshold:
             similar_names[score] = name
 
@@ -103,10 +111,10 @@ def find_similar_place(place_name: str, similarity_threshold: float = 0.3) -> Un
     return similar_names[max(similar_names.keys())]
 
 
-def get_city_name(district_name: str) -> Union[str, None]:
-    district_name = district_name.strip().capitalize()
-    districts = pd.read_csv("districts.csv").apply(lambda x: x.str.capitalize() if x.dtype == "object" else x)
-    cities = pd.read_csv("cities.csv").apply(lambda x: x.str.capitalize() if x.dtype == "object" else x)
+def get_city_name(district_name: AnyStr) -> Optional[AnyStr]:
+    district_name = UnicodeTR(district_name.strip()).capitalize()
+    districts = pd.read_csv("districts.csv").apply(lambda x: UnicodeTR(x.str).capitalize() if x.dtype == "object" else x)
+    cities = pd.read_csv("cities.csv").apply(lambda x: UnicodeTR(x.str).capitalize() if x.dtype == "object" else x)
 
     if district_name in districts["ilce_adi"].values:
         plate: int = districts.loc[districts["ilce_adi"] == district_name]["il_plaka"].values[0]
