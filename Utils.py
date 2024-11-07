@@ -63,14 +63,18 @@ def get_season(date: str) -> Union[AnyStr, None]:
         return "Winter"
 
 
-def get_lat_long(place_name: str, parent_name: str = None):
+def get_lat_long(place_name: str, parent_name: str = None) -> Union[Dict[str, float], None]:
     cities = pd.read_csv("cities.csv").apply(lambda x: x.str.capitalize() if x.dtype == "object" else x)
     districts = pd.read_csv("districts.csv").apply(lambda x: x.str.capitalize() if x.dtype == "object" else x)
 
     if place_name in cities["il_adi"].values and parent_name is None:
-        return cities.loc[cities["il_adi"] == place_name][["lat", "lon"]].values[0].tolist()
+        data = cities.loc[cities["il_adi"] == place_name]
+        coordinates = data[["lat", "lon", "northeast_lat", "northeast_lon", "southwest_lat", "southwest_lon"]].to_dict()
+        return {key: value[data["plaka"].iloc[0] - 1] for key, value in coordinates.items()}
     elif place_name in districts["ilce_adi"].values and parent_name is not None:
-        return districts.loc[districts["ilce_adi"] == place_name][["lat", "lon"]].values[0].tolist()
+        data = districts.loc[districts["ilce_adi"] == place_name]
+        coordinates = data[["lat", "lon", "northeast_lat", "northeast_lon", "southwest_lat", "southwest_lon"]].to_dict()
+        return {key: value[data["ilce_id"].iloc[0] - 1] for key, value in coordinates.items()}
     else:
         return None
 
@@ -79,12 +83,12 @@ def similarity_ratio(string1: str, string2: str) -> float:
     return SequenceMatcher(None, string1, string2).ratio()
 
 
-def find_similar_place(place_name: str) -> Union[str, None]:
+def find_similar_place(place_name: str, similarity_threshold: float = 0.3) -> Union[str, None]:
     districts = get_districts_from_file()
     similar_names: Dict[float, str] = {}
 
     def add_similar_name(name: str, score: float) -> None:
-        if len(place_name) == len(name) and score > 0.5:
+        if len(place_name) == len(name) and score > similarity_threshold:
             similar_names[score] = name
 
     for city_name, city_districts in districts.items():
@@ -94,7 +98,6 @@ def find_similar_place(place_name: str) -> Union[str, None]:
             district_name = district_name.split(" ")[-1]
             district_similarity_score = similarity_ratio(place_name, district_name)
             add_similar_name(district_name, district_similarity_score)
-
     if not similar_names:
         return None
     return similar_names[max(similar_names.keys())]
