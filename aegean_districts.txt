@@ -6,8 +6,8 @@ Sinanpasa
 Emirdag
 Suhut
 Cay
-Ihsaniye
-Iscehisar
+İhsaniye
+İscehisar
 Sultandagı
 Cobanlar
 Dazkiri
@@ -21,7 +21,7 @@ Nazilli
 Soke
 Kusadası
 Yenihisar
-Incirliova
+İncirliova
 Cine
 Germencik
 Bozdogan
@@ -54,7 +54,7 @@ Beyagac
 Babadag
 Baklan
 
-Izmir
+İzmir
 Buca
 Karabağlar
 Bornova
@@ -162,7 +162,7 @@ Erdek
 Gomec
 Gonen
 Havran
-Ivrindi
+İvrindi
 Kepsut
 Manyas
 Marmara
@@ -176,8 +176,8 @@ Yıldırım
 Gemlik
 Gursu
 Harmancık
-Inegol
-Iznik
+İnegol
+İznik
 Karacabey
 Keles
 Kestel
@@ -217,7 +217,7 @@ Kemer
 Tefenni
 Yesilova
 
-Isparta
+İsparta
 Aksu
 Atabey
 Egridir
@@ -246,7 +246,7 @@ Sivrihisar
 Bilecik
 Bozuyuk
 Golpazari
-Inhisar
+İnhisar
 Osmaneli
 Pazaryeri
 Sogut
@@ -268,7 +268,7 @@ Sogutlu
 Tarakli
 
 Kocaeli
-Izmit
+İzmit
 Karatepe
 Derince
 Golcuk
@@ -280,7 +280,7 @@ Gebze
 Kandira
 Karamursel
 
-Istanbul
+İstanbul
 Adalar
 Arnavutkoy
 Avcilar
@@ -328,7 +328,7 @@ Vize
 Edirne
 Enez
 Havsa
-Ipsala
+İpsala
 Kesan
 Lalapasa
 Meric

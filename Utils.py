@@ -4,6 +4,7 @@ from typing import Dict, AnyStr, List, Optional
 import pandas as pd
 from difflib import SequenceMatcher
 from UnicodeTR import UnicodeTR
+from googletrans import Translator
 
 
 def is_valid_date(date_string: AnyStr) -> bool:
@@ -70,8 +71,8 @@ def get_lat_long(place_name: AnyStr, parent_name: AnyStr = None) -> Optional[Dic
     cities = pd.read_csv("cities.csv")
     districts = pd.read_csv("districts.csv")
 
-    cities = cities.apply(lambda x: UnicodeTR(x.str).capitalize() if x.dtype == "object" else x)
-    districts = districts.apply(lambda x: UnicodeTR(x.str).capitalize() if x.dtype == "object" else x)
+    cities = cities.map(lambda x: UnicodeTR(x).capitalize() if isinstance(x, str) else x)
+    districts = districts.map(lambda x: UnicodeTR(x).capitalize() if isinstance(x, str) else x)
 
     if place_name in cities["il_adi"].values and parent_name is None:
         data = cities.loc[cities["il_adi"] == place_name]
@@ -113,11 +114,27 @@ def find_similar_place(place_name: AnyStr, similarity_threshold: float = 0.3) ->
 
 def get_city_name(district_name: AnyStr) -> Optional[AnyStr]:
     district_name = UnicodeTR(district_name.strip()).capitalize()
-    districts = pd.read_csv("districts.csv").apply(lambda x: UnicodeTR(x.str).capitalize() if x.dtype == "object" else x)
-    cities = pd.read_csv("cities.csv").apply(lambda x: UnicodeTR(x.str).capitalize() if x.dtype == "object" else x)
+    districts = pd.read_csv("districts.csv").map(lambda x: UnicodeTR(x).capitalize() if isinstance(x, str) else x)
+    cities = pd.read_csv("cities.csv").map(lambda x: UnicodeTR(x).capitalize() if isinstance(x, str) else x)
 
     if district_name in districts["ilce_adi"].values:
         plate: int = districts.loc[districts["ilce_adi"] == district_name]["il_plaka"].values[0]
         return cities.loc[cities["plaka"] == plate]["il_adi"].values[0]
     else:
         return None
+
+
+def translate_to_turkish(common_names: Dict[AnyStr, AnyStr], languages_priority: List[AnyStr] = ["fra", "eng", "deu"]) -> AnyStr:
+    translator = Translator()
+    for lang in languages_priority:
+        if lang in common_names.keys():
+            text_to_translate = common_names[lang]
+            translation = translator.translate(text=text_to_translate, src=lang[:-1], dest="tr")
+            return translation.text
+
+    if common_names:
+        text_to_translate = next(iter(common_names.values()))
+        translation = translator.translate(text_to_translate, src='auto', dest='tr')
+        return translation.text
+
+    return "No translation available."

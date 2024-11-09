@@ -17,7 +17,7 @@ class WeatherDataCollector(ABC):
         self.districts = get_districts_from_file(districts_filename)
 
     @abstractmethod
-    def get_data(self, district: AnyStr) -> Union[List[Dict], Dict]:
+    def get_data(self, place_name: AnyStr) -> Union[List[Dict], Dict]:
         raise NotImplementedError("You need to implement get_pollen_data function.")
 
     @abstractmethod
@@ -83,11 +83,11 @@ class AccuWeather(WeatherDataCollector):
         self.chrome_options = Options()
         self.driver = webdriver.Chrome(service=Service("chromedriver/chromedriver.exe"), options=self.chrome_options)
 
-    def get_data(self, district_name: AnyStr) -> Union[List[Dict], Dict]:
-        district_name = UnicodeTR(district_name.strip()).lower()
-        if len(district_name) < 1:
+    def get_data(self, place_name: AnyStr) -> Union[List[Dict], Dict]:
+        place_name = UnicodeTR(place_name.strip()).lower()
+        if len(place_name) < 1:
             raise ValueError("Please provide a real district name.")
-        location_key = self.__get_location_key(district_name)
+        location_key = self.__get_location_key(place_name)
 
         # Getting pollen information by location key from API
         pollen_url = f"https://dataservice.accuweather.com/forecasts/v1/daily/1day/{location_key}"
@@ -101,12 +101,12 @@ class AccuWeather(WeatherDataCollector):
             pollen_data = response.json()
             if 'DailyForecasts' in pollen_data and len(pollen_data['DailyForecasts']) > 0:
                 measurements: Dict = pollen_data["DailyForecasts"][0]
-                measurements.update(self.__get_health_activities_data(district_name, location_key))
+                measurements.update(self.__get_health_activities_data(place_name, location_key))
                 return measurements
         else:
             if response.status_code == 503:
                 self.__increment_api_index()
-                return self.get_data(district_name)
+                return self.get_data(place_name)
 
     def save(self, data: Union[List[Dict], Dict], filename: AnyStr) -> None:
         if isinstance(data, dict):
