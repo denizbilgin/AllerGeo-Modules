@@ -209,7 +209,7 @@ class AccuWeather(WeatherDataCollector):
         lifestyle_index_lists = content.find_elements(By.CLASS_NAME,"lifestyle-index-list")
         lifestyles_dict: Dict = {}
 
-        time.sleep(3)
+        time.sleep(4)
         for lifestyle_list in lifestyle_index_lists:
             title = lifestyle_list.find_element(By.CLASS_NAME, "index-list-title").text
             title = title.replace(" ", "").replace("&", "And")
