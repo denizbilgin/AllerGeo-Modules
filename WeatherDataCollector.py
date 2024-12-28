@@ -11,7 +11,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from UnicodeTR import UnicodeTR
-
+from DatabaseHandler import DatabaseHandler
 
 class WeatherDataCollector(ABC):
     def __init__(self, districts_filename: AnyStr):
@@ -110,39 +110,12 @@ class AccuWeather(WeatherDataCollector):
                 self.__increment_api_index()
                 return self.get_data(place_name)
 
-    def save(self, data: Union[List[Dict], Dict], filename: AnyStr) -> None:
-        if isinstance(data, dict):
-            data = [data]
-        normalized_daily_dataframes = []
+    def save(self, data: Union[List[Dict], Dict], table_name: AnyStr) -> None:
+        db_handler = DatabaseHandler("./config.json", table_name, self.redundant_columns, self.fahrenheit_unit_columns,
+                                     self.mph_unit_columns, self.in_unit_columns)
+        db_handler.save_to_database(data)
 
-        for day_data in data:
-            normalized_dataframe = pd.json_normalize(day_data, sep="_")
-
-            if "AirAndPollen" in normalized_dataframe.columns:
-                air_and_pollen = normalized_dataframe["AirAndPollen"].apply(pd.Series)
-                air_and_pollen.columns = [f"AirAndPollen_{item["Name"]}" for item in air_and_pollen.iloc[0]]
-
-                for column in air_and_pollen.columns:
-                    air_and_pollen[column] = air_and_pollen[column].apply(lambda x: x['Category'] if isinstance(x, dict) else x)
-
-                normalized_dataframe = pd.concat([normalized_dataframe.drop(columns=["AirAndPollen"]), air_and_pollen], axis=1)
-
-            normalized_dataframe["Date"] = datetime.now()
-            normalized_daily_dataframes.append(normalized_dataframe)
-
-        result_dataframe = pd.concat(normalized_daily_dataframes, ignore_index=True)
-        result_dataframe = self.__preprocess_columns(result_dataframe)
-
-        if not os.path.exists(filename):
-            with open(filename, "w") as f:
-                f.write(",".join(result_dataframe.columns))
-
-        old_dataframe = pd.read_csv(filename)
-        final_dataframe = pd.concat([old_dataframe, result_dataframe], ignore_index=True)
-
-        final_dataframe.to_csv(filename, index=False)
-
-    def save_aegean(self, filename: AnyStr) -> None:
+    def save_aegean(self, table_name: AnyStr) -> None:
         forecasts = []
         for city_name, city_districts in self.districts.items():
             city_data = self.get_data(city_name)
@@ -157,7 +130,7 @@ class AccuWeather(WeatherDataCollector):
                 district_data["District"] = city_district.split(" ")[-1]
                 district_data["Season"] = get_season(district_data["Date"])
                 forecasts.append(district_data)
-        self.save(forecasts, filename)
+        self.save(forecasts, table_name)
 
     def __get_location_key(self, district_name: AnyStr) -> AnyStr:
         location_url = f"https://dataservice.accuweather.com/locations/v1/cities/search"
@@ -174,24 +147,6 @@ class AccuWeather(WeatherDataCollector):
         location_key = location_data[0]['Key']
         print(f"Location Key for {UnicodeTR(district_name).capitalize()}: {location_key}")
         return location_key
-
-    def __preprocess_columns(self, dataframe: pd.DataFrame) -> pd.DataFrame:
-        dataframe.drop(columns=[column for column in dataframe.columns if "Unit" in column], inplace=True)
-        dataframe.drop(columns=self.redundant_columns, inplace=True, errors='ignore')
-
-        for col in self.fahrenheit_unit_columns:
-            if col in dataframe.columns:
-                dataframe[col] = dataframe[col].apply(fahrenheit_to_celsius)
-
-        for col in self.mph_unit_columns:
-            if col in dataframe.columns:
-                dataframe[col] = dataframe[col].apply(mph_to_kph)
-
-        for col in self.in_unit_columns:
-            if col in dataframe.columns:
-                dataframe[col] = dataframe[col].apply(inch_to_millimeter)
-
-        return dataframe
 
     def __increment_api_index(self) -> None:
         self.available_api_key_index += 1

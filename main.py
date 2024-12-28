@@ -7,11 +7,10 @@ from git import Repo
 import os
 from datetime import datetime
 
-
 if __name__ == '__main__':
     pollen_data_collector = AccuWeather()
     vegetation_collector = PlantNet()
-    pollen_data_collector.save_aegean("aegean_weather_data.csv")
+    pollen_data_collector.save_aegean("weather_data")
 
     #district_name = "Ula"
     #district_name = UnicodeTR(district_name).capitalize()
