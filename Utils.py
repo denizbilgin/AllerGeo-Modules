@@ -2,7 +2,7 @@ from datetime import datetime
 import os
 from typing import Dict, AnyStr, List, Optional
 import pandas as pd
-from difflib import SequenceMatcher
+ 
 from UnicodeTR import UnicodeTR
 from googletrans import Translator
 
