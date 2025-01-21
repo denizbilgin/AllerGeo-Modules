@@ -82,7 +82,7 @@ class AccuWeather(WeatherDataCollector):
         # For Selenium
         self.base_website_url = "https://www.accuweather.com/en/en/"
         self.chrome_options = Options()
-        #self.chrome_options.add_argument("--force-device-scale-factor=0.3")
+        self.chrome_options.add_argument("--force-device-scale-factor=0.3")
         self.driver = webdriver.Chrome(service=Service("chromedriver/chromedriver.exe"), options=self.chrome_options)
 
     def get_data(self, place_name: AnyStr) -> Union[List[Dict], Dict]:
@@ -164,7 +164,7 @@ class AccuWeather(WeatherDataCollector):
         lifestyle_index_lists = content.find_elements(By.CLASS_NAME,"lifestyle-index-list")
         lifestyles_dict: Dict = {}
 
-        #time.sleep(4)
+        time.sleep(4)
         for lifestyle_list in lifestyle_index_lists:
             title = lifestyle_list.find_element(By.CLASS_NAME, "index-list-title").text
             title = title.replace(" ", "").replace("&", "And")
