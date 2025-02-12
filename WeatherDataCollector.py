@@ -13,6 +13,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from UnicodeTR import UnicodeTR
 from DatabaseHandler import DatabaseHandler
 
+
 class WeatherDataCollector(ABC):
     def __init__(self, districts_filename: AnyStr):
         self.districts = get_districts_from_file(districts_filename)

@@ -12,14 +12,16 @@ if __name__ == '__main__':
     vegetation_collector = PlantNet()
     pollen_data_collector.save_aegean("weather_data")
 
-    #district_name = "Ula"
-    #district_name = UnicodeTR(district_name).capitalize()
-    #parent_name = get_city_name(district_name)
-    #print(district_name, "-", parent_name)
-    #species = vegetation_collector.get_data(district_name)
-    #for individual_species in species:
-    #    print(individual_species)
-    #    print()
+    """
+    district_name = "Ula"
+    district_name = UnicodeTR(district_name).capitalize()
+    parent_name = get_city_name(district_name)
+    print(district_name, "-", parent_name)
+    species = vegetation_collector.get_data(district_name)
+    for individual_species in species:
+        print(individual_species)
+        print()
+    """
 
     repo = Repo(os.getcwd())
     index = repo.index
