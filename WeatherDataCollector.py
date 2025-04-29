@@ -118,11 +118,17 @@ class AccuWeather(WeatherDataCollector):
 
     def save_aegean(self, table_name: AnyStr) -> None:
         forecasts = []
+        db_handler = DatabaseHandler("./config.json", table_name, self.redundant_columns, self.fahrenheit_unit_columns,
+                                     self.mph_unit_columns, self.in_unit_columns)
+
         for city_name, city_districts in self.districts.items():
             city_data = self.get_data(city_name)
             city_data["City"] = city_name
             city_data["District"] = None
             city_data["Season"] = get_season(city_data["Date"])
+
+            city_data["CityId"] = db_handler.fetch_city_id_by_name(city_name)
+            city_data["DistrictId"] = None
             forecasts.append(city_data)
 
             for city_district in city_districts:
@@ -130,6 +136,9 @@ class AccuWeather(WeatherDataCollector):
                 district_data["City"] = city_name
                 district_data["District"] = city_district.split(" ")[-1]
                 district_data["Season"] = get_season(district_data["Date"])
+
+                district_data["CityId"] = city_data["CityId"]
+                district_data["DistrictId"] = db_handler.fetch_district_id_by_name(city_district)
                 forecasts.append(district_data)
         self.save(forecasts, table_name)
 

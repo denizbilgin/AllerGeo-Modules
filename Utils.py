@@ -2,7 +2,7 @@ from datetime import datetime
 import os
 from typing import Dict, AnyStr, List, Optional
 import pandas as pd
- 
+from fuzzywuzzy import process
 from UnicodeTR import UnicodeTR
 from googletrans import Translator
 
@@ -138,3 +138,57 @@ def translate_to_turkish(common_names: Dict[AnyStr, AnyStr], languages_priority:
         return translation.text
 
     return "No translation available."
+
+def match_place_name(input_name: str, place_list: pd.Series, threshold: int = 80) -> Optional[str]:
+    matched_place = process.extractOne(turkish_lowercase(input_name), place_list.apply(turkish_lowercase))
+    if matched_place and matched_place[1] >= threshold:
+        return matched_place[0]
+    else:
+        return None
+
+def turkish_lowercase(text: AnyStr) -> AnyStr:
+    """
+    Turkish lowercase function that basically converts the letters I and İ to lowercase.
+    :param text: Text to be written in lowercase
+    :return: Turkish lowercased text
+    """
+    translation_table = str.maketrans(
+        "Iİ",
+        "ıi"
+    )
+    return text.translate(translation_table).lower()
+
+
+def turkish_capitalize(text: str, apply_each_word: bool = True) -> str:
+    """
+    Turkish capitalize function that capitalizes the first letter
+    of the given text using Turkish uppercase and lowercase rules.
+    :param apply_each_word: If True, capitalizes each word in the text
+    :param text: Text to be capitalized
+    :return: Turkish capitalized text
+    """
+    if not text:
+        return text
+    text = text.strip()
+
+    if apply_each_word:
+        words = text.split()
+        capitalized_words = [
+            turkish_uppercase(word[0]) + turkish_lowercase(word[1:]) for word in words
+        ]
+        return " ".join(capitalized_words)
+
+    return turkish_uppercase(text[0]) + turkish_lowercase(text[1:])
+
+
+def turkish_uppercase(text: AnyStr) -> AnyStr:
+    """
+    Turkish uppercase function that basically converts the letters ı and i to uppercase.
+    :param text: Text to be written in uppercase
+    :return: Turkish uppercased text
+    """
+    translation_table = str.maketrans(
+        "ıi",
+        "Iİ"
+    )
+    return text.translate(translation_table).upper()
