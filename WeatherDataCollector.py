@@ -3,6 +3,8 @@ import time
 from abc import ABC, abstractmethod
 from typing import Union, Optional, AnyStr
 import requests
+from selenium.webdriver.chrome.service import Service
+
 from Utils import *
 from selenium import webdriver
 from selenium.webdriver.common.by import By
